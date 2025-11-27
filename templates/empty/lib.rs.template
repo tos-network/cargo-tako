@@ -1,0 +1,40 @@
+//! {{project_name}} - TAKO Smart Contract
+//!
+//! A minimal TAKO contract template.
+
+use tako_storage::prelude::*;
+
+/// {{project_name}} Contract
+pub struct {{project_name}} {
+    // Add your storage fields here
+    // Example:
+    // data: Value<u64>,
+}
+
+impl {{project_name}} {
+    /// Create a new contract instance
+    pub fn new() -> Self {
+        Self {
+            // Initialize your storage fields
+        }
+    }
+
+    // Add your contract methods here
+}
+
+impl Default for {{project_name}} {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let _contract = {{project_name}}::new();
+        // Add your tests here
+    }
+}

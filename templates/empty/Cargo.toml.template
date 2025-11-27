@@ -1,0 +1,17 @@
+[package]
+name = "{{project_name_kebab}}"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako-macros = { git = "https://github.com/tos-network/tako" }
+tako-storage = { git = "https://github.com/tos-network/tako" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

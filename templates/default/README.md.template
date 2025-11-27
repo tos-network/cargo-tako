@@ -1,0 +1,37 @@
+# {{project_name}}
+
+A simple counter smart contract built with TAKO.
+
+## Features
+
+- Increment counter
+- Decrement counter with underflow protection
+- Reset counter
+- Get current count
+
+## Building
+
+```bash
+cargo tako build
+cargo tako build --release
+```
+
+## Testing
+
+```bash
+cargo tako test
+```
+
+## Usage
+
+```rust
+use {{project_name_snake}}::Counter;
+
+let mut counter = Counter::new();
+counter.increment().unwrap();
+let count = counter.get_count(); // 1
+```
+
+## License
+
+MIT OR Apache-2.0

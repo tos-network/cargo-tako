@@ -1,0 +1,83 @@
+//! {{project_name}} - TAKO Smart Contract
+
+use tako_macros::*;
+use tako_storage::prelude::*;
+
+/// Simple counter contract
+pub struct Counter {
+    count: Value<u64>,
+}
+
+impl Counter {
+    pub fn new() -> Self {
+        let mut counter = Self {
+            count: Value::new("count"),
+        };
+        counter.count.set(0).unwrap();
+        counter
+    }
+
+    /// Increment the counter
+    pub fn increment(&mut self) -> Result<u64, StorageError> {
+        self.count.increment(1)
+    }
+
+    /// Decrement the counter
+    pub fn decrement(&mut self) -> Result<u64, StorageError> {
+        self.count.decrement(1)
+    }
+
+    /// Get current count
+    pub fn get_count(&self) -> u64 {
+        self.count.get_or_default()
+    }
+
+    /// Reset counter to zero
+    pub fn reset(&mut self) -> Result<(), StorageError> {
+        self.count.set(0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_counter_increment() {
+        let mut counter = Counter::new();
+        assert_eq!(counter.get_count(), 0);
+
+        counter.increment().unwrap();
+        assert_eq!(counter.get_count(), 1);
+
+        counter.increment().unwrap();
+        assert_eq!(counter.get_count(), 2);
+    }
+
+    #[test]
+    fn test_counter_decrement() {
+        let mut counter = Counter::new();
+        counter.increment().unwrap();
+        counter.increment().unwrap();
+
+        counter.decrement().unwrap();
+        assert_eq!(counter.get_count(), 1);
+    }
+
+    #[test]
+    fn test_counter_reset() {
+        let mut counter = Counter::new();
+        counter.increment().unwrap();
+        counter.increment().unwrap();
+
+        counter.reset().unwrap();
+        assert_eq!(counter.get_count(), 0);
+    }
+
+    #[test]
+    fn test_counter_underflow() {
+        let mut counter = Counter::new();
+        let result = counter.decrement();
+        assert!(result.is_err());
+    }
+}

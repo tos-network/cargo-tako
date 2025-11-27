@@ -1,0 +1,62 @@
+# {{project_name}}
+
+A minimal TAKO smart contract.
+
+## Getting Started
+
+This template provides a bare-bones starting point for building TAKO contracts.
+
+### Adding Storage
+
+Use TAKO storage containers:
+
+```rust
+use tako_storage::prelude::*;
+
+pub struct MyContract {
+    // Single value
+    counter: Value<u64>,
+
+    // Key-value mapping
+    balances: Mapping<[u8; 32], u64>,
+
+    // Nested mapping (tuple keys)
+    allowances: Mapping<([u8; 32], [u8; 32]), u64>,
+}
+```
+
+### Adding Functions
+
+```rust
+impl MyContract {
+    pub fn increment(&mut self) -> StorageResult<u64> {
+        self.counter.increment(1)
+    }
+
+    pub fn get_counter(&self) -> u64 {
+        self.counter.get_or_default()
+    }
+}
+```
+
+## Building
+
+```bash
+cargo tako build --release
+```
+
+## Testing
+
+```bash
+cargo tako test
+```
+
+## Resources
+
+- [TAKO Documentation](https://github.com/tos-network/tako)
+- [Storage Containers Guide](https://github.com/tos-network/tako/tree/main/sdk/storage)
+- [Example Contracts](https://github.com/tos-network/tako/tree/main/examples)
+
+## License
+
+[Add license information here]

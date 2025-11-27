@@ -1,0 +1,51 @@
+# {{project_name}}
+
+An ERC-20 token contract built with TOS Kernel(TAKO).
+
+## Features
+
+- ✅ Standard ERC-20 operations (transfer, approve, transferFrom)
+- ✅ Mint and burn capabilities
+- ✅ Efficient storage using TAKO storage containers
+- ✅ Comprehensive test coverage
+
+## Contract Interface
+
+### View Functions
+
+- `name()` - Get token name
+- `symbol()` - Get token symbol
+- `decimals()` - Get token decimals
+- `total_supply()` - Get total token supply
+- `balance_of(account)` - Get balance of an account
+- `allowance(owner, spender)` - Get allowance for a spender
+
+### State-Changing Functions
+
+- `mint(to, amount)` - Mint new tokens
+- `burn(from, amount)` - Burn tokens
+- `transfer(from, to, amount)` - Transfer tokens
+- `approve(owner, spender, amount)` - Approve a spender
+- `transfer_from(spender, from, to, amount)` - Transfer on behalf of another account
+
+## Building
+
+```bash
+cargo tako build --release
+```
+
+This will produce a TBPF contract binary at `target/tbpf-tos-tos/release/{{project_name_kebab}}.so`
+
+## Testing
+
+```bash
+cargo tako test
+```
+
+## Deployment
+
+[Add deployment instructions here]
+
+## License
+
+[Add license information here]

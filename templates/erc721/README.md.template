@@ -1,0 +1,66 @@
+# {{project_name}}
+
+An ERC-721 NFT contract built with TOS Kernel(TAKO).
+
+## Features
+
+- ✅ Standard ERC-721 operations (mint, transfer, approve)
+- ✅ Token metadata with URI support
+- ✅ Operator approvals for managing all tokens
+- ✅ Safe transfer functionality
+- ✅ Burn capability
+- ✅ Comprehensive test coverage
+
+## Contract Interface
+
+### Metadata Functions
+
+- `name()` - Get collection name
+- `symbol()` - Get collection symbol
+- `total_supply()` - Get total number of tokens
+- `token_uri(token_id)` - Get metadata URI for a token
+
+### Balance & Ownership
+
+- `balance_of(owner)` - Get number of tokens owned
+- `owner_of(token_id)` - Get owner of a token
+- `exists(token_id)` - Check if token exists
+
+### Approval Functions
+
+- `approve(to, token_id)` - Approve address to transfer token
+- `get_approved(token_id)` - Get approved address for token
+- `set_approval_for_all(owner, operator, approved)` - Approve operator for all tokens
+- `is_approved_for_all(owner, operator)` - Check if operator is approved
+
+### Transfer Functions
+
+- `transfer_from(from, to, token_id)` - Transfer token
+- `safe_transfer_from(from, to, token_id)` - Safe transfer with validation
+
+### Minting & Burning
+
+- `mint(to, token_id, uri)` - Mint new token
+- `burn(token_id)` - Burn token
+
+## Building
+
+```bash
+cargo tako build --release
+```
+
+This will produce a TBPF contract binary at `target/tbpf-tos-tos/release/{{project_name_kebab}}.so`
+
+## Testing
+
+```bash
+cargo tako test
+```
+
+## Deployment
+
+[Add deployment instructions here]
+
+## License
+
+[Add license information here]

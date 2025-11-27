@@ -1,0 +1,250 @@
+//! {{project_name}} - ERC-20 Token Contract
+//!
+//! A complete ERC-20 token implementation using TAKO storage containers.
+
+use tako_storage::prelude::*;
+
+// Address type (32-byte array)
+type Address = [u8; 32];
+
+/// ERC-20 Token Contract
+///
+/// Features:
+/// - Standard ERC-20 operations (transfer, approve, transferFrom)
+/// - Mint and burn capabilities
+/// - Efficient nested mapping for allowances
+pub struct {{project_name}} {
+    // Token metadata
+    name: Value<String>,
+    symbol: Value<String>,
+    decimals: Value<u8>,
+    total_supply: Value<u64>,
+
+    // Balances: address => amount
+    balances: Mapping<Address, u64>,
+
+    // Allowances: (owner, spender) => amount
+    allowances: Mapping<(Address, Address), u64>,
+}
+
+impl {{project_name}} {
+    /// Create a new token contract
+    pub fn new(name: &str, symbol: &str, decimals: u8) -> Self {
+        let mut token = Self {
+            name: Value::new("token_name"),
+            symbol: Value::new("token_symbol"),
+            decimals: Value::new("token_decimals"),
+            total_supply: Value::new("total_supply"),
+            balances: Mapping::new("balances"),
+            allowances: Mapping::new("allowances"),
+        };
+
+        token.name.set(name.to_string()).unwrap();
+        token.symbol.set(symbol.to_string()).unwrap();
+        token.decimals.set(decimals).unwrap();
+        token.total_supply.set(0).unwrap();
+
+        token
+    }
+
+    // ===== View Functions =====
+
+    /// Get token name
+    pub fn name(&self) -> StorageResult<String> {
+        self.name.get()
+    }
+
+    /// Get token symbol
+    pub fn symbol(&self) -> StorageResult<String> {
+        self.symbol.get()
+    }
+
+    /// Get token decimals
+    pub fn decimals(&self) -> u8 {
+        self.decimals.get_or_default()
+    }
+
+    /// Get total supply
+    pub fn total_supply(&self) -> u64 {
+        self.total_supply.get_or_default()
+    }
+
+    /// Get balance of an account
+    pub fn balance_of(&self, account: &Address) -> u64 {
+        self.balances.get_or_default(account)
+    }
+
+    /// Get allowance for a spender
+    pub fn allowance(&self, owner: &Address, spender: &Address) -> u64 {
+        self.allowances.get_or_default(&(*owner, *spender))
+    }
+
+    // ===== State-Changing Functions =====
+
+    /// Mint new tokens to an account
+    pub fn mint(&mut self, to: &Address, amount: u64) -> StorageResult<()> {
+        self.total_supply.increment(amount)?;
+        self.balances.increment(to, amount)?;
+        Ok(())
+    }
+
+    /// Burn tokens from an account
+    pub fn burn(&mut self, from: &Address, amount: u64) -> StorageResult<()> {
+        let balance = self.balance_of(from);
+        if balance < amount {
+            return Err(StorageError::Underflow);
+        }
+
+        self.balances.decrement(from, amount)?;
+        self.total_supply.decrement(amount)?;
+        Ok(())
+    }
+
+    /// Transfer tokens
+    pub fn transfer(&mut self, from: &Address, to: &Address, amount: u64) -> StorageResult<()> {
+        let balance = self.balance_of(from);
+        if balance < amount {
+            return Err(StorageError::Underflow);
+        }
+
+        self.balances.decrement(from, amount)?;
+        self.balances.increment(to, amount)?;
+        Ok(())
+    }
+
+    /// Approve a spender to use tokens
+    pub fn approve(&mut self, owner: &Address, spender: &Address, amount: u64) -> StorageResult<()> {
+        self.allowances.set(&(*owner, *spender), amount)
+    }
+
+    /// Transfer tokens on behalf of another account
+    pub fn transfer_from(
+        &mut self,
+        spender: &Address,
+        from: &Address,
+        to: &Address,
+        amount: u64,
+    ) -> StorageResult<()> {
+        // Check allowance
+        let allowed = self.allowance(from, spender);
+        if allowed < amount {
+            return Err(StorageError::Underflow);
+        }
+
+        // Check balance
+        let balance = self.balance_of(from);
+        if balance < amount {
+            return Err(StorageError::Underflow);
+        }
+
+        // Update allowance and transfer
+        self.allowances.decrement(&(*from, *spender), amount)?;
+        self.balances.decrement(from, amount)?;
+        self.balances.increment(to, amount)?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn alice() -> Address {
+        [1u8; 32]
+    }
+
+    fn bob() -> Address {
+        [2u8; 32]
+    }
+
+    fn carol() -> Address {
+        [3u8; 32]
+    }
+
+    #[test]
+    fn test_token_metadata() {
+        let token = {{project_name}}::new("My Token", "MTK", 18);
+        assert_eq!(token.name().unwrap(), "My Token");
+        assert_eq!(token.symbol().unwrap(), "MTK");
+        assert_eq!(token.decimals(), 18);
+        assert_eq!(token.total_supply(), 0);
+    }
+
+    #[test]
+    fn test_mint() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 1000).unwrap();
+
+        assert_eq!(token.balance_of(&alice()), 1000);
+        assert_eq!(token.total_supply(), 1000);
+    }
+
+    #[test]
+    fn test_transfer() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 1000).unwrap();
+        token.transfer(&alice(), &bob(), 300).unwrap();
+
+        assert_eq!(token.balance_of(&alice()), 700);
+        assert_eq!(token.balance_of(&bob()), 300);
+    }
+
+    #[test]
+    fn test_transfer_insufficient_balance() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 100).unwrap();
+
+        let result = token.transfer(&alice(), &bob(), 200);
+        assert!(matches!(result, Err(StorageError::Underflow)));
+    }
+
+    #[test]
+    fn test_approve_and_allowance() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.approve(&alice(), &bob(), 500).unwrap();
+
+        assert_eq!(token.allowance(&alice(), &bob()), 500);
+    }
+
+    #[test]
+    fn test_transfer_from() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 1000).unwrap();
+        token.approve(&alice(), &bob(), 500).unwrap();
+        token.transfer_from(&bob(), &alice(), &carol(), 200).unwrap();
+
+        assert_eq!(token.balance_of(&alice()), 800);
+        assert_eq!(token.balance_of(&carol()), 200);
+        assert_eq!(token.allowance(&alice(), &bob()), 300);
+    }
+
+    #[test]
+    fn test_transfer_from_insufficient_allowance() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 1000).unwrap();
+        token.approve(&alice(), &bob(), 100).unwrap();
+
+        let result = token.transfer_from(&bob(), &alice(), &carol(), 200);
+        assert!(matches!(result, Err(StorageError::Underflow)));
+    }
+
+    #[test]
+    fn test_burn() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 1000).unwrap();
+        token.burn(&alice(), 300).unwrap();
+
+        assert_eq!(token.balance_of(&alice()), 700);
+        assert_eq!(token.total_supply(), 700);
+    }
+
+    #[test]
+    fn test_burn_insufficient_balance() {
+        let mut token = {{project_name}}::new("Test", "TST", 18);
+        token.mint(&alice(), 100).unwrap();
+
+        let result = token.burn(&alice(), 200);
+        assert!(matches!(result, Err(StorageError::Underflow)));
+    }
+}
