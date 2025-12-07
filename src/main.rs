@@ -10,6 +10,7 @@ mod commands;
 mod config;
 mod error;
 mod template;
+mod toolchain;
 mod util;
 
 use commands::{build, init, test};

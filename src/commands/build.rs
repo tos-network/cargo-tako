@@ -1,6 +1,7 @@
 //! Build command implementation
 
 use crate::error::{Error, Result};
+use crate::toolchain::{find_platform_tools, PlatformTools, DEFAULT_PLATFORM_TOOLS_VERSION};
 use crate::util::find_contract_binary_for_target;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -24,27 +25,6 @@ fn get_expected_flags(arch: &str) -> u32 {
         "v4" => 0x4,
         _ => 0x0,
     }
-}
-
-/// Find the TOS platform-tools toolchain directory
-fn find_platform_tools() -> Option<PathBuf> {
-    // Try to find platform-tools relative to the tos-network directory
-    // Check common locations
-    let home = std::env::var("HOME").ok()?;
-    let candidates = [
-        format!("{}/tos-network/platform-tools/out/rust/bin", home),
-        format!("{}/.tos/platform-tools/rust/bin", home),
-        "/usr/local/tos/platform-tools/rust/bin".to_string(),
-    ];
-
-    for path in candidates {
-        let rustc_path = PathBuf::from(&path).join("rustc");
-        if rustc_path.exists() {
-            return Some(PathBuf::from(path));
-        }
-    }
-
-    None
 }
 
 /// Build a TAKO smart contract
@@ -72,27 +52,22 @@ pub fn build_contract(release: bool, arch: &str, target: Option<&str>) -> Result
     println!("  Target: {target}");
     println!("  Profile: {profile}");
 
-    // Find TOS platform-tools
-    let platform_tools = find_platform_tools();
-    if let Some(ref tools_path) = platform_tools {
-        println!("  Toolchain: {}", tools_path.display());
+    // Find TOS platform-tools (Solana-aligned search)
+    let platform_tools = find_platform_tools(Some(DEFAULT_PLATFORM_TOOLS_VERSION));
+
+    if let Some(ref tools) = platform_tools {
+        println!("  Toolchain: {} ({})", tools.display_path(), tools.version);
     } else {
         println!("  Toolchain: system (TOS platform-tools not found)");
         eprintln!("Warning: TOS platform-tools not found. TBPF targets may not be available.");
-        eprintln!("Expected location: ~/tos-network/platform-tools/out/rust/bin/");
+        eprintln!("Expected locations:");
+        eprintln!("  1. ~/.cache/tos/<version>/platform-tools/rust/bin/");
+        eprintln!("  2. ~/tos-network/platform-tools/rust/bin/");
+        eprintln!("  3. ~/.tos/platform-tools/rust/bin/");
     }
 
-    // Build cargo command - use TOS platform-tools cargo if available
-    let cargo_bin = if let Some(ref tools_path) = platform_tools {
-        let cargo_path = tools_path.join("cargo");
-        if cargo_path.exists() {
-            cargo_path.to_string_lossy().to_string()
-        } else {
-            "cargo".to_string()
-        }
-    } else {
-        "cargo".to_string()
-    };
+    // Build cargo command
+    let (cargo_bin, rustc_env) = get_cargo_and_rustc(&platform_tools);
 
     let mut cmd = Command::new(&cargo_bin);
     cmd.arg("build");
@@ -110,9 +85,18 @@ pub fn build_contract(release: bool, arch: &str, target: Option<&str>) -> Result
     cmd.arg("-Zbuild-std=core,alloc");
 
     // Set TOS platform-tools as the Rust compiler if found
-    if let Some(ref tools_path) = platform_tools {
-        let rustc_path = tools_path.join("rustc");
-        cmd.env("RUSTC", &rustc_path);
+    if let Some(rustc) = rustc_env {
+        cmd.env("RUSTC", &rustc);
+    }
+
+    // Set LLVM tools environment variables if available
+    if let Some(ref tools) = platform_tools {
+        if tools.llvm_bin.exists() {
+            cmd.env("CC", tools.clang());
+            cmd.env("AR", tools.llvm_ar());
+            cmd.env("OBJDUMP", tools.llvm_objdump());
+            cmd.env("OBJCOPY", tools.llvm_objcopy());
+        }
     }
 
     // Execute build
@@ -137,6 +121,25 @@ pub fn build_contract(release: bool, arch: &str, target: Option<&str>) -> Result
     println!("✓ Build successful");
 
     Ok(binary_path)
+}
+
+/// Get cargo binary path and optional RUSTC environment variable
+fn get_cargo_and_rustc(platform_tools: &Option<PlatformTools>) -> (String, Option<PathBuf>) {
+    if let Some(ref tools) = platform_tools {
+        let cargo = tools.cargo();
+        let rustc = tools.rustc();
+
+        if cargo.exists() {
+            (cargo.to_string_lossy().to_string(), Some(rustc))
+        } else if rustc.exists() {
+            // Use system cargo but TOS rustc
+            ("cargo".to_string(), Some(rustc))
+        } else {
+            ("cargo".to_string(), None)
+        }
+    } else {
+        ("cargo".to_string(), None)
+    }
 }
 
 /// Verify a built contract binary
@@ -234,22 +237,47 @@ pub fn dump_elf(path: &Path) -> Result<()> {
     println!("ELF dump for {}", path.display());
     println!();
 
-    // Try llvm-readelf first, fall back to readelf
-    let output = Command::new("llvm-readelf")
-        .args(["-h", "-l", path.to_str().unwrap_or("")])
-        .output()
-        .or_else(|_| {
-            Command::new("readelf")
+    // Try to use platform-tools llvm-readelf first
+    let platform_tools = find_platform_tools(None);
+
+    let output = if let Some(ref tools) = platform_tools {
+        let llvm_readelf = tools.llvm_bin.join("llvm-readelf");
+        if llvm_readelf.exists() {
+            Command::new(&llvm_readelf)
                 .args(["-h", "-l", path.to_str().unwrap_or("")])
                 .output()
-        })
-        .map_err(|e| Error::BuildFailed(format!("Failed to run readelf: {e}")))?;
-
-    if output.status.success() {
-        println!("{}", String::from_utf8_lossy(&output.stdout));
+                .ok()
+        } else {
+            None
+        }
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Warning: readelf failed: {stderr}");
+        None
+    };
+
+    // Fall back to system tools
+    let output = output.or_else(|| {
+        Command::new("llvm-readelf")
+            .args(["-h", "-l", path.to_str().unwrap_or("")])
+            .output()
+            .ok()
+    }).or_else(|| {
+        Command::new("readelf")
+            .args(["-h", "-l", path.to_str().unwrap_or("")])
+            .output()
+            .ok()
+    });
+
+    match output {
+        Some(out) if out.status.success() => {
+            println!("{}", String::from_utf8_lossy(&out.stdout));
+        }
+        Some(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            eprintln!("Warning: readelf failed: {stderr}");
+        }
+        None => {
+            return Err(Error::BuildFailed("Failed to run readelf or llvm-readelf".to_string()));
+        }
     }
 
     Ok(())

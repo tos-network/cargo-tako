@@ -27,11 +27,24 @@ cargo install --path .
 
 ### Prerequisites
 
-You need the TOS platform-tools installed. The tool looks for it in:
+You need the TOS platform-tools installed. Download from [GitHub Releases](https://github.com/tos-network/platform-tools/releases/tag/v1.52).
 
-1. `~/tos-network/platform-tools/out/rust/bin/`
-2. `~/.tos/platform-tools/rust/bin/`
-3. `/usr/local/tos/platform-tools/rust/bin/`
+**Recommended installation (Solana-aligned cache directory):**
+
+```bash
+mkdir -p ~/.cache/tos/v1.52/platform-tools
+cd ~/.cache/tos/v1.52/platform-tools
+curl -L -O https://github.com/tos-network/platform-tools/releases/download/v1.52/tos-platform-tools-osx-aarch64.tar.bz2
+tar -xjf tos-platform-tools-osx-aarch64.tar.bz2
+```
+
+The tool searches for platform-tools in this order:
+
+1. `~/.cache/tos/<version>/platform-tools/rust/bin/` (Solana-aligned, recommended)
+2. `~/tos-network/platform-tools/rust/bin/` (legacy)
+3. `~/tos-network/platform-tools/out/rust/bin/` (build output)
+4. `~/.tos/platform-tools/rust/bin/` (user local)
+5. `/usr/local/tos/platform-tools/rust/bin/` (system-wide)
 
 ## Usage
 
